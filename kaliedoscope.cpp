@@ -3,6 +3,10 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <cctype>
+#include <cstdio>
+#include <utility>
+#include <cstdlib>
 
 using namespace std;
 
@@ -342,13 +346,67 @@ static unique_ptr<PrototypeAST> ParseExtern() {
     return ParsePrototype();
 }
 
+// Top level lex
+// = expression
+static unique_ptr<FunctionAST> ParseTopLevelExpr () {
+    if (auto E = ParseExpression()) {
+        // make an anon proto
+        auto Proto = make_unique<PrototypeAST>("", vector<string>());
+        return make_unique<FunctionAST>(move(Proto), move(E));
+    }
+}
 
+// top 
+// = definition | external | expression | ';'
+static void MainLoop() {
+  while (true) {
+    fprintf(stderr, "ready> ");
+    switch (CurTok) {
+    case tok_eof:
+      return;
+    case ';': // ignore top-level semicolons.
+      getNextToken();
+      break;
+    case tok_def:
+      HandleDefinition();
+      break;
+    case tok_extern:
+      HandleExtern();
+      break;
+    default:
+      HandleTopLevelExpression();
+      break;
+    }
+  }
+}
 
+static void HandleDefinition() {
+  if (ParseDefinition()) {
+    fprintf(stderr, "Parsed a function definition.\n");
+  } else {
+    // Skip token for error recovery.
+    getNextToken();
+  }
+}
 
+static void HandleExtern() {
+  if (ParseExtern()) {
+    fprintf(stderr, "Parsed an extern\n");
+  } else {
+    // Skip token for error recovery.
+    getNextToken();
+  }
+}
 
-
-
-
+static void HandleTopLevelExpression() {
+  // Evaluate a top-level expression into an anonymous function.
+  if (ParseTopLevelExpr()) {
+    fprintf(stderr, "Parsed a top-level expr\n");
+  } else {
+    // Skip token for error recovery.
+    getNextToken();
+  }
+}
 
 int main() {
     // 1 is lowest precedence ---- Extend this ****
@@ -357,9 +415,12 @@ int main() {
     BinopPrecedence['-'] = 20;
     BinopPrecedence['*'] = 40; // highest
 
-    while (true) {
-        int tok = gettok();
-        cout << "token: " << tok << endl;
-    }
+    // Prime the first token
+    fprintf(stderr, "Ready --> ");
+    getNextToken();
+
+    MainLoop();
+
+    return 0;
 }
 
