@@ -284,20 +284,63 @@ static unique_ptr<ExprAST> ParseBinOpRHS(
         // let the pending op take RHS as its LHS
         int NextPrec = GetTokPrecedence();
         if (TokPrec < NextPrec) {
-            // ... if body omitted ...
+            RHS = ParseBinOpRHS(TokPrec + 1, move(RHS));
+            if (!RHS) {
+                return nullptr;
+            }
         }
 
         // Merge LHS/RHS
         LHS = make_unique<BinaryExprAST>(BinOp, move(LHS), move(RHS));
-
     }
 }
 
+// Prototype
+// = id '(' id ')'
+static unique_ptr<PrototypeAST> ParsePrototype() {
+    if (CurTok != tok_identifier) {
+        return LogErrorP("Expected function name in prototype");
+    }
+    string FnName = IdentifierStr;
+    getNextToken();
 
+    if (CurTok != '(') {
+        return LogErrorP("Expected '(' in prototype");
+    }
+    
+    // read the list of arg names
+    vector<string> ArgNames;
+    while (getNextToken() == tok_identifier) {
+        ArgNames.push_back(IdentifierStr);
+    }
+    if (CurTok != ')') {
+        return LogErrorP("Expected ')' in prototype");
+    }
+    // success
+    getNextToken();
+    return make_unique<PrototypeAST>(FnName, move(ArgNames));
+}
 
+// Definition
+// = 'def' prototype expression
+static unique_ptr<FunctionAST> ParseDefinition() {
+    getNextToken(); //eat def
+    auto Proto = ParsePrototype();
+    if (!Proto) {
+        return nullptr;
+    }
+    if (auto E = ParseExpression()) {
+        return make_unique<FunctionAST>(move(Proto), move(E));
+    }
+    return nullptr;
+}
 
-
-
+// External
+// = 'extern' prototype
+static unique_ptr<PrototypeAST> ParseExtern() {
+    getNextToken(); // eat extern
+    return ParsePrototype();
+}
 
 
 
