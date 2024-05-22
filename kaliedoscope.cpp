@@ -9,8 +9,11 @@
 #include <cstdlib>
 
 using namespace std;
-
-// Scanner
+/*
+-------------------------------------------------------------------------
+-----------------------         Scanner         -------------------------
+-------------------------------------------------------------------------
+*/
 enum Token {
     tok_eof = -1,
     tok_def = -2,
@@ -74,6 +77,15 @@ static int gettok() {
     LastChar = getchar();
     return ThisChar;
 }
+
+/*
+-------------------------------------------------------------------------
+-----------------------         AST         -------------------------
+-------------------------------------------------------------------------
+*/
+
+// They do some weird namespace thing here don't know what it does.
+
 
 // Base class for all expression nodes, better lang would use a type field
 class ExprAST {
@@ -147,6 +159,13 @@ class FunctionAST {
         ) : Proto(move(Proto)), Body(move(Body)) {}
 };
 
+
+/*
+-------------------------------------------------------------------------
+-----------------------         Parser          -------------------------
+-------------------------------------------------------------------------
+*/
+
 // Token Buffer
 // Current token the parser is looking at
 static int CurTok;
@@ -166,6 +185,7 @@ unique_ptr<PrototypeAST> LogErrorP(const char *Str) {
     return nullptr;
 }
 // Recursive decent Parser: Expression Parsing
+static unique_ptr<ExprAST> ParseExpression();
 
 // Number expr := number
 static unique_ptr<ExprAST> ParseNumberExpr() {
@@ -237,6 +257,7 @@ static unique_ptr<ExprAST> ParsePrimary() {
     }
 }
 
+
 // Binary Expression Parsing
 
 //Binop Precedence - This holds the precedence for each binary operator 
@@ -254,15 +275,6 @@ static int GetTokPrecedence() {
     }
     return TokPrec;
 } 
-
-// Expression = Primary Binoprhs
-static unique_ptr<ExprAST> ParseExpression() {
-    auto LHS = ParsePrimary();
-    if (!LHS) {
-        return nullptr;
-    }
-    return ParseBinOpRHS(0, move(LHS));
-}
 
 // BinOpRHS
 // = ('+', primary)
@@ -297,6 +309,15 @@ static unique_ptr<ExprAST> ParseBinOpRHS(
         // Merge LHS/RHS
         LHS = make_unique<BinaryExprAST>(BinOp, move(LHS), move(RHS));
     }
+}
+
+// Expression = Primary Binoprhs
+static unique_ptr<ExprAST> ParseExpression() {
+    auto LHS = ParsePrimary();
+    if (!LHS) {
+        return nullptr;
+    }
+    return ParseBinOpRHS(0, move(LHS));
 }
 
 // Prototype
@@ -345,8 +366,7 @@ static unique_ptr<PrototypeAST> ParseExtern() {
     getNextToken(); // eat extern
     return ParsePrototype();
 }
-
-// Top level lex
+// Top level expr
 // = expression
 static unique_ptr<FunctionAST> ParseTopLevelExpr () {
     if (auto E = ParseExpression()) {
@@ -356,29 +376,13 @@ static unique_ptr<FunctionAST> ParseTopLevelExpr () {
     }
 }
 
-// top 
-// = definition | external | expression | ';'
-static void MainLoop() {
-  while (true) {
-    fprintf(stderr, "ready> ");
-    switch (CurTok) {
-    case tok_eof:
-      return;
-    case ';': // ignore top-level semicolons.
-      getNextToken();
-      break;
-    case tok_def:
-      HandleDefinition();
-      break;
-    case tok_extern:
-      HandleExtern();
-      break;
-    default:
-      HandleTopLevelExpression();
-      break;
-    }
-  }
-}
+
+/*
+-------------------------------------------------------------------------
+----------------------     Top Level Parsing      -----------------------
+-------------------------------------------------------------------------
+*/
+
 
 static void HandleDefinition() {
   if (ParseDefinition()) {
@@ -407,6 +411,37 @@ static void HandleTopLevelExpression() {
     getNextToken();
   }
 }
+
+
+// top 
+// = definition | external | expression | ';'
+static void MainLoop() {
+  while (true) {
+    fprintf(stderr, "Ready --> ");
+    switch (CurTok) {
+    case tok_eof:
+      return;
+    case ';': // ignore top-level semicolons.
+      getNextToken();
+      break;
+    case tok_def:
+      HandleDefinition();
+      break;
+    case tok_extern:
+      HandleExtern();
+      break;
+    default:
+      HandleTopLevelExpression();
+      break;
+    }
+  }
+}
+
+/*
+-------------------------------------------------------------------------
+----------------------     Main Driver Code      ------------------------
+-------------------------------------------------------------------------
+*/
 
 int main() {
     // 1 is lowest precedence ---- Extend this ****
